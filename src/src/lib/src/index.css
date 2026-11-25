@@ -1,0 +1,7 @@
+:root { --ac: #0b6e63; --bg: #f1f4f3; --ink: #12302b; --ln: #d9e1df; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+.box { max-width: 420px; margin: 12vh auto; padding: 20px; }
+input, button { width: 100%; padding: 12px; margin: 6px 0; border-radius: 10px; border: 1px solid var(--ln); font: inherit; }
+button { background: var(--ac); color: #fff; border: 0; font-weight: 700; }
+.err { color: #b3261e; }
