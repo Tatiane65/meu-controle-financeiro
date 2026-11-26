@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import './app.css'
 import Relatorios from './Relatorios'
 import Orcamento from './Orcamento'
+import Calendario from './Calendario'
 const R = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const pad = (n) => String(n).padStart(2, '0')
 const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`
@@ -421,8 +422,9 @@ export default function Financeiro({ session }) {
       {aba === 'cartoes' && cartoes}
       {aba === 'relatorios' && <Relatorios />}
       {aba === 'orcamento' && <Orcamento />}
+      {aba === 'calendario' && <Calendario />}
       <nav>
-        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios'], ['orcamento', 'Orçamento']].map(([k, t]) => (
+        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios'], ['orcamento', 'Orçamento'], ['calendario', 'Calendário']].map(([k, t]) => (
           <button key={k} className={aba === k ? 'on' : ''} onClick={() => { setAba(k); setCardId(null); if (k !== 'novo' && ed) { setEd(null); setF(vazio) } }}>{t}</button>
         ))}
       </nav>
