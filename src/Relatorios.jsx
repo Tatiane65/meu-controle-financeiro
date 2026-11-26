@@ -103,7 +103,83 @@ export default function Relatorios() {
     a.click()
     a.remove()
   }
-
+  async function gerarPdf() {
+    try {
+      const { default: jsPDF } = await import('jspdf')
+      const autoTable = (await import('jspdf-autotable')).default
+      const t = (v) => R(v).replace(/\u00a0/g, ' ')
+      const doc = new jsPDF()
+      doc.setFontSize(16)
+      doc.text('Meu Controle Financeiro', 14, 16)
+      doc.setFontSize(11)
+      doc.text('Relatório: ' + periodo, 14, 23)
+      const verde = { fillColor: [11, 110, 99] }
+      autoTable(doc, {
+        startY: 28,
+        head: [['Resumo', 'Valor']],
+        body: [
+          ['Receitas', t(rec)],
+          ['Despesas', t(des)],
+          ['Saldo', t(rec - des)],
+          ['Despesas pagas', t(soma(dados, (x) => isD(x) && x.paid))],
+          ['Pendentes', t(soma(dados, (x) => isD(x) && status(x) === 'pendente'))],
+          ['Vencidas', t(soma(dados, (x) => isD(x) && status(x) === 'vencida'))],
+          ['Gastos em cartões', t(totalCartoes)],
+          ['Receitas no período anterior', t(recA)],
+          ['Despesas no período anterior', t(desA)],
+        ],
+        theme: 'grid',
+        headStyles: verde,
+      })
+      if (linhas.length > 1) {
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 8,
+          head: [['Mês', 'Receitas', 'Despesas', 'Saldo', 'Acumulado']],
+          body: linhas.map((x) => [
+            MESES[x.m % 12].slice(0, 3) + '/' + String(Math.floor(x.m / 12)).slice(2),
+            t(x.r), t(x.d), t(x.s), t(x.acc),
+          ]),
+          theme: 'grid',
+          headStyles: verde,
+        })
+      }
+      if (des) {
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 8,
+          head: [['Categoria', 'Valor', '%']],
+          body: Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, t(v), ((v / des) * 100).toFixed(0) + '%']),
+          theme: 'grid',
+          headStyles: verde,
+        })
+      }
+      if (Object.keys(porCartao).length) {
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 8,
+          head: [['Cartão', 'Valor']],
+          body: Object.entries(porCartao).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, t(v)]),
+          theme: 'grid',
+          headStyles: verde,
+        })
+      }
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['Data', 'Descrição', 'Categoria', 'Valor', 'Status']],
+        body: dados.map((x) => [
+          br(x.due_date),
+          x.description + (x.installments > 1 ? ' ' + x.installment + '/' + x.installments : ''),
+          x.category || '',
+          (isR(x) ? '+' : '') + t(x.amount),
+          isR(x) && x.paid ? 'recebida' : status(x),
+        ]),
+        theme: 'striped',
+        headStyles: verde,
+        styles: { fontSize: 9 },
+      })
+      doc.save('relatorio-' + ini + '-a-' + fim + '.pdf')
+    } catch (e) {
+      setErro('Não foi possível gerar o PDF.')
+    }
+  }
   const barras = (o, tot) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k, v]) => (
     <div key={k}>
       <div className="ln"><span>{k}</span><b>{R(v)} <small>({tot ? ((v / tot) * 100).toFixed(0) : 0}%)</small></b></div>
@@ -208,7 +284,7 @@ export default function Relatorios() {
 
       <div className="noprint">
         <button className="out" onClick={baixar}>Baixar para Excel (CSV)</button>
-        <button className="out" onClick={() => window.print()}>Salvar em PDF</button>
+        <button className="out" onClick={gerarPdf}>Salvar em PDF</button>
       </div>
     </>
   )
