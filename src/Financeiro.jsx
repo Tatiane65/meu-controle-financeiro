@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import './app.css'
 import Relatorios from './Relatorios'
+import Orcamento from './Orcamento'
 const R = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const pad = (n) => String(n).padStart(2, '0')
 const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`
@@ -419,8 +420,9 @@ export default function Financeiro({ session }) {
       {aba === 'contas' && contas}
       {aba === 'cartoes' && cartoes}
       {aba === 'relatorios' && <Relatorios />}
+      {aba === 'orcamento' && <Orcamento />}
       <nav>
-        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios']].map(([k, t]) => (
+        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios'], ['orcamento', 'Orçamento']].map(([k, t]) => (
           <button key={k} className={aba === k ? 'on' : ''} onClick={() => { setAba(k); setCardId(null); if (k !== 'novo' && ed) { setEd(null); setF(vazio) } }}>{t}</button>
         ))}
       </nav>
