@@ -28,7 +28,7 @@ const soma = (a, f = () => true) => a.filter(f).reduce((s, x) => s + Number(x.am
 const isR = (x) => x.kind === 'receita'
 const isD = (x) => x.kind === 'despesa'
 const status = (x) => (x.paid ? 'paga' : dias(x.due_date) < 0 ? 'vencida' : 'pendente')
-const vazio = { tipo: 'despesa', desc: '', valor: '', data: hoje(), cat: 'Moradia', pay: 'Pix', cartao: '', n: 1, total: false, rec: 'unica' }
+const vazio = { tipo: 'despesa', desc: '', valor: '', data: hoje(), cat: 'Moradia', pay: 'Pix', cartao: '', n: 1, total: false, rec: 'unica', reps: '12' }
 const cvazio = { name: '', bank: '', flag: 'Visa', limit: '', close: '', due: '', color: '#0b6e63' }
 
 function vencFatura(c, compra) {
@@ -53,6 +53,8 @@ export default function Financeiro({ session }) {
   const [cf, setCf] = useState(cvazio)
   const [novoCartao, setNovoCartao] = useState(false)
   const [msg, setMsg] = useState('')
+  const [ed, setEd] = useState(null)
+  const [serie, setSerie] = useState(false)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
   const setC = (k) => (e) => setCf({ ...cf, [k]: e.target.value })
 
@@ -70,6 +72,20 @@ export default function Financeiro({ session }) {
   const ini = iso(Math.floor(mes / 12), mes % 12, 1)
   const fim = iso(Math.floor(mes / 12), mes % 12, lastDay(Math.floor(mes / 12), mes % 12))
 
+  function editar(x) {
+    setEd(x)
+    setSerie(false)
+    setF({
+      ...vazio,
+      tipo: isR(x) ? 'receita' : x.card_id ? 'cartao' : 'despesa',
+      desc: x.description,
+      valor: String(x.amount).replace('.', ','),
+      data: x.due_date,
+      cat: CATS.includes(x.category) ? x.category : 'Outros',
+      pay: x.pay_method || 'Pix',
+    })
+    setAba('novo')
+  }
   async function marcar(x) { await supabase.from('transactions').update({ paid: !x.paid }).eq('id', x.id); carregar() }
   async function excluir(x) { await supabase.from('transactions').delete().eq('id', x.id); carregar() }
   async function excluirSerie(x) { await supabase.from('transactions').delete().eq('group_id', x.group_id).gte('due_date', x.due_date); carregar() }
@@ -83,6 +99,22 @@ export default function Financeiro({ session }) {
     e.preventDefault()
     const v = num(f.valor)
     if (!f.desc.trim() || !(v > 0) || !f.data) return setMsg('Preencha descrição, valor e data.')
+    if (ed) {
+      const dados = { description: f.desc.trim(), amount: v, due_date: f.data, category: f.tipo === 'receita' ? 'Receita' : f.cat }
+      if (f.tipo === 'despesa') dados.pay_method = f.pay
+      const { error: e1 } = await supabase.from('transactions').update(dados).eq('id', ed.id)
+      if (e1) return setMsg(e1.message)
+      if (serie && ed.group_id) {
+        const { due_date: _d, ...resto } = dados
+        await supabase.from('transactions').update(resto).eq('group_id', ed.group_id).gt('due_date', ed.due_date)
+      }
+      setMes(ymOf(f.data))
+      setEd(null)
+      setF(vazio)
+      setAba('contas')
+      carregar()
+      return setMsg('Lançamento atualizado.')
+    }
     const g = crypto.randomUUID()
     const base = {
       description: f.desc.trim(),
@@ -103,12 +135,15 @@ export default function Financeiro({ session }) {
         linhas.push({ ...base, card_id: c.id, pay_method: 'Cartão', amount: val, due_date: addM(primeira, i), installment: i + 1, installments: n })
       }
     } else {
-      const cfg = { unica: [0, 1], semanal: [7, 26], mensal: [1, 12], trimestral: [3, 4], anual: [12, 3] }[f.rec]
-      for (let i = 0; i < cfg[1]; i++) {
+      const passo = { unica: 0, semanal: 7, mensal: 1, trimestral: 3, anual: 12 }[f.rec]
+      const qtd = f.rec === 'unica' ? 1 : Math.max(2, Math.min(60, parseInt(f.reps) || 12))
+      for (let i = 0; i < qtd; i++) {
         linhas.push({
           ...base, amount: v, recurrence: f.rec,
           pay_method: f.tipo === 'despesa' ? f.pay : null,
-          due_date: f.rec === 'semanal' ? addD(f.data, 7 * i) : addM(f.data, cfg[0] * i),
+          due_date: f.rec === 'semanal' ? addD(f.data, 7 * i) : addM(f.data, passo * i),
+          installment: qtd > 1 ? i + 1 : null,
+          installments: qtd > 1 ? qtd : null,
         })
       }
     }
@@ -155,7 +190,7 @@ export default function Financeiro({ session }) {
   const linha = (x) => {
     const s = status(x)
     const c = cards.find((k) => k.id === x.card_id)
-    const serie = x.group_id && tx.filter((y) => y.group_id === x.group_id).length > 1
+    const serieX = x.group_id && tx.filter((y) => y.group_id === x.group_id).length > 1
     return (
       <div key={x.id} className={'row' + (x.paid ? ' ok' : '')}>
         <button className="chk" onClick={() => marcar(x)} aria-label="Marcar como paga">{x.paid ? '✓' : ''}</button>
@@ -165,8 +200,9 @@ export default function Financeiro({ session }) {
         </div>
         <div className={'val ' + (isR(x) ? 'pos' : '')}>{isR(x) ? '+' : ''}{R(x.amount)}</div>
         <div className="act">
+          <button onClick={() => editar(x)}>Editar</button>
           <button onClick={() => excluir(x)}>Excluir</button>
-          {serie && <button onClick={() => excluirSerie(x)}>Excluir daqui em diante</button>}
+          {serieX && <button onClick={() => excluirSerie(x)}>Excluir daqui em diante</button>}
         </div>
       </div>
     )
@@ -309,9 +345,10 @@ export default function Financeiro({ session }) {
   const rotData = f.tipo === 'cartao' ? 'Data da compra' : f.tipo === 'receita' ? 'Data de recebimento' : 'Vencimento'
   const novo = (
     <form className="card" onSubmit={salvar}>
+      {ed && <div className="lbl" style={{ marginBottom: 8 }}>Editando lançamento</div>}
       <div className="seg">
         {[['despesa', 'Despesa'], ['cartao', 'Compra no cartão'], ['receita', 'Receita']].map(([k, t]) => (
-          <button type="button" key={k} className={f.tipo === k ? 'on' : ''} onClick={() => setF({ ...f, tipo: k })}>{t}</button>
+          <button type="button" key={k} className={f.tipo === k ? 'on' : ''} onClick={() => !ed && setF({ ...f, tipo: k })}>{t}</button>
         ))}
       </div>
       <label>Descrição</label><input value={f.desc} onChange={set('desc')} placeholder="Ex.: Aluguel, TV, Salário" />
@@ -331,7 +368,7 @@ export default function Financeiro({ session }) {
           <select value={f.pay} onChange={set('pay')}>{['Pix', 'Débito', 'Boleto', 'Dinheiro', 'Transferência'].map((c) => <option key={c}>{c}</option>)}</select>
         </>
       )}
-      {f.tipo === 'cartao' ? (
+      {ed ? null : f.tipo === 'cartao' ? (
         <>
           <label>Cartão</label>
           <select value={f.cartao || (cards[0] && cards[0].id) || ''} onChange={set('cartao')}>
@@ -348,14 +385,26 @@ export default function Financeiro({ session }) {
           <label>Recorrência</label>
           <select value={f.rec} onChange={set('rec')}>
             <option value="unica">Única</option>
-            <option value="semanal">Semanal (26 semanas)</option>
-            <option value="mensal">Mensal (12 meses)</option>
-            <option value="trimestral">Trimestral (4 vezes)</option>
-            <option value="anual">Anual (3 anos)</option>
+            <option value="semanal">Semanal</option>
+            <option value="mensal">Mensal</option>
+            <option value="trimestral">Trimestral</option>
+            <option value="anual">Anual</option>
           </select>
+          {f.rec !== 'unica' && (
+            <>
+              <label>Quantas vezes (parcelas)</label>
+              <select value={f.reps} onChange={set('reps')}>
+                {[2, 3, 4, 5, 6, 8, 10, 12, 18, 24, 36].map((n) => <option key={n} value={n}>{n} vezes</option>)}
+              </select>
+            </>
+          )}
         </>
       )}
-      <button className="go">Salvar lançamento</button>
+      {ed && ed.group_id && (
+        <label className="ck"><input type="checkbox" checked={serie} onChange={(e) => setSerie(e.target.checked)} />Aplicar também às próximas parcelas</label>
+      )}
+      <button className="go">{ed ? 'Salvar alterações' : 'Salvar lançamento'}</button>
+      {ed && <button type="button" className="out" onClick={() => { setEd(null); setF(vazio); setAba('contas') }}>Cancelar edição</button>}
     </form>
   )
 
@@ -372,7 +421,7 @@ export default function Financeiro({ session }) {
       {aba === 'novo' && novo}
       <nav>
         {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo']].map(([k, t]) => (
-          <button key={k} className={aba === k ? 'on' : ''} onClick={() => { setAba(k); setCardId(null) }}>{t}</button>
+          <button key={k} className={aba === k ? 'on' : ''} onClick={() => { setAba(k); setCardId(null); if (k !== 'novo' && ed) { setEd(null); setF(vazio) } }}>{t}</button>
         ))}
       </nav>
     </div>
