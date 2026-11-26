@@ -21,7 +21,7 @@ export default function App() {
     e.preventDefault()
     setErro('')
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
-    if (error) setErro('E-mail ou senha incorretos.')
+    if (error) setErro(error.message)
   }
 
   if (!ready) return <div className="box">Carregando…</div>
