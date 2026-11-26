@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import Financeiro from './Financeiro'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -37,11 +38,5 @@ export default function App() {
       </form>
     )
 
-  return (
-    <div className="box">
-      <h2>Você está dentro ✓</h2>
-      <p>{session.user.email}</p>
-      <button onClick={() => supabase.auth.signOut()}>Sair</button>
-    </div>
-  )
+  return <Financeiro session={session} />
 }
