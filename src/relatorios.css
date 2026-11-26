@@ -1,0 +1,11 @@
+.app nav{grid-template-columns:repeat(5,1fr)}
+.app nav button{font-size:12px}
+.tb{width:100%;border-collapse:collapse;font-size:13px}
+.tb th,.tb td{padding:6px 4px;text-align:right;border-bottom:1px solid #e4efec;white-space:nowrap}
+.tb th:first-child,.tb td:first-child{text-align:left}
+.tb th{color:#5d6f6b;font-weight:600}
+.rel-tipo{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.app .rel-tipo button{padding:10px 2px;background:#f1f4f3;font-size:13px}
+.app .rel-tipo button.on{background:#0b6e63;color:#fff;border-color:#0b6e63;font-weight:600}
+.rel-scroll{overflow-x:auto}
+@media print{.app nav,.noprint,.topo{display:none !important}.app{padding:0}}
