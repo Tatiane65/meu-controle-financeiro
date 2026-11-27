@@ -4,6 +4,8 @@ import './app.css'
 import Relatorios from './Relatorios'
 import Orcamento from './Orcamento'
 import Calendario from './Calendario'
+import Bancos, { SeletorConta, SaldoTotal } from './Contas'
+
 const R = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const pad = (n) => String(n).padStart(2, '0')
 const iso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`
@@ -30,7 +32,7 @@ const soma = (a, f = () => true) => a.filter(f).reduce((s, x) => s + Number(x.am
 const isR = (x) => x.kind === 'receita'
 const isD = (x) => x.kind === 'despesa'
 const status = (x) => (x.paid ? 'paga' : dias(x.due_date) < 0 ? 'vencida' : 'pendente')
-const vazio = { tipo: 'despesa', desc: '', valor: '', data: hoje(), cat: 'Moradia', pay: 'Pix', cartao: '', n: 1, total: false, rec: 'unica', reps: '12' }
+const vazio = { tipo: 'despesa', desc: '', valor: '', data: hoje(), cat: 'Moradia', pay: 'Pix', cartao: '', n: 1, total: false, rec: 'unica', reps: '12', conta: '' }
 const cvazio = { name: '', bank: '', flag: 'Visa', limit: '', close: '', due: '', color: '#0b6e63' }
 
 function vencFatura(c, compra) {
@@ -85,6 +87,7 @@ export default function Financeiro({ session }) {
       data: x.due_date,
       cat: CATS.includes(x.category) ? x.category : 'Outros',
       pay: x.pay_method || 'Pix',
+      conta: x.account_id || '',
     })
     setAba('novo')
   }
@@ -102,7 +105,7 @@ export default function Financeiro({ session }) {
     const v = num(f.valor)
     if (!f.desc.trim() || !(v > 0) || !f.data) return setMsg('Preencha descrição, valor e data.')
     if (ed) {
-      const dados = { description: f.desc.trim(), amount: v, due_date: f.data, category: f.tipo === 'receita' ? 'Receita' : f.cat }
+      const dados = { description: f.desc.trim(), amount: v, due_date: f.data, category: f.tipo === 'receita' ? 'Receita' : f.cat, account_id: f.conta || null }
       if (f.tipo === 'despesa') dados.pay_method = f.pay
       const { error: e1 } = await supabase.from('transactions').update(dados).eq('id', ed.id)
       if (e1) return setMsg(e1.message)
@@ -124,6 +127,7 @@ export default function Financeiro({ session }) {
       kind: f.tipo === 'receita' ? 'receita' : 'despesa',
       group_id: g,
       paid: false,
+      account_id: f.conta || null,
     }
     const linhas = []
     if (f.tipo === 'cartao') {
@@ -221,6 +225,7 @@ export default function Financeiro({ session }) {
   const painel = (
     <>
       {cab}
+      <SaldoTotal tx={tx} />
       <section className="card">
         <div className="lbl">Saldo do mês (receitas menos despesas)</div>
         <div className={'big' + (rec - des < 0 ? ' neg' : '')}>{R(rec - des)}</div>
@@ -345,6 +350,7 @@ export default function Financeiro({ session }) {
   )
 
   const rotData = f.tipo === 'cartao' ? 'Data da compra' : f.tipo === 'receita' ? 'Data de recebimento' : 'Vencimento'
+  const rotConta = f.tipo === 'cartao' ? 'Conta que paga a fatura' : f.tipo === 'receita' ? 'Conta de destino' : 'Conta de saída'
   const novo = (
     <form className="card" onSubmit={salvar}>
       {ed && <div className="lbl" style={{ marginBottom: 8 }}>Editando lançamento</div>}
@@ -370,6 +376,7 @@ export default function Financeiro({ session }) {
           <select value={f.pay} onChange={set('pay')}>{['Pix', 'Débito', 'Boleto', 'Dinheiro', 'Transferência'].map((c) => <option key={c}>{c}</option>)}</select>
         </>
       )}
+      <SeletorConta rotulo={rotConta} value={f.conta} onChange={set('conta')} />
       {ed ? null : f.tipo === 'cartao' ? (
         <>
           <label>Cartão</label>
@@ -420,11 +427,13 @@ export default function Financeiro({ session }) {
       {aba === 'painel' && painel}
       {aba === 'contas' && contas}
       {aba === 'cartoes' && cartoes}
+      {aba === 'novo' && novo}
       {aba === 'relatorios' && <Relatorios />}
       {aba === 'orcamento' && <Orcamento />}
       {aba === 'calendario' && <Calendario />}
+      {aba === 'bancos' && <Bancos />}
       <nav>
-        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios'], ['orcamento', 'Orçamento'], ['calendario', 'Calendário']].map(([k, t]) => (
+        {[['painel', 'Painel'], ['contas', 'Contas'], ['cartoes', 'Cartões'], ['novo', 'Novo'], ['relatorios', 'Relatórios'], ['orcamento', 'Orçamento'], ['calendario', 'Calendário'], ['bancos', 'Bancos']].map(([k, t]) => (
           <button key={k} className={aba === k ? 'on' : ''} onClick={() => { setAba(k); setCardId(null); if (k !== 'novo' && ed) { setEd(null); setF(vazio) } }}>{t}</button>
         ))}
       </nav>
