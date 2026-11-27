@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
-
+import Importar from './Importar'
 const R = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const num = (s) => { s = String(s).trim(); return parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s) }
 const hoje = () => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}` }
@@ -137,7 +137,7 @@ export default function Bancos() {
         <div className={'big' + (total < 0 ? ' neg' : '')}>{R(total)}</div>
         <small>Soma de todas as contas, com transferências e lançamentos pagos.</small>
       </section>
-
+<Importar contas={contas} onDone={carregar} />
       <h3 style={{ margin: '6px 0 10px' }}>Minhas contas</h3>
       {contas.length === 0 && <p className="empty">Nenhuma conta cadastrada.</p>}
       {contas.map((c) => (
